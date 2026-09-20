@@ -493,36 +493,90 @@
       canvas.height = Math.max(1, Math.floor(h * dpr));
     } catch (e) { /* non-fatal */ }
 
-    var b = ctx.backendFactory;
-    var initP;
-    if (b && typeof b.init === 'function') {
-      initP = Promise.resolve().then(function () {
-        return b.init(canvas, { tracers: ctx.tracers, seed: ctx.seed, config: ctx.configId });
-      });
-    } else if (typeof b === 'function') {
-      initP = Promise.resolve().then(function () {
-        return b(canvas, { tracers: ctx.tracers, seed: ctx.seed, config: ctx.configId });
-      });
-    } else {
-      return Promise.reject(vxError('VX_E_FIELD_INIT',
-        'Backend "' + ctx.backendName + '" has no init(canvas, opts).', 'field-init', null));
+    /* Step-down order for field-init (lane-14 fix 2026-09-20): the probe can
+     * select WebGPU while the lane-14 WebGPU fluid solver is a documented
+     * stub whose init() honestly rejects. A field-init failure must step down
+     * to the next backend instead of killing the boot — CPU is the floor. */
+    var ORDER = ['webgpu', 'webgl2', 'cpu'];
+    var TIER_OF = { webgpu: 'B', webgl2: 'B', cpu: 'C' };
+    var TRACERS_OF = { webgpu: 262144, webgl2: 262144, cpu: 4096 };
+    var V = getV();
+    var startIdx = ORDER.indexOf(ctx.backendName);
+    if (startIdx < 0) startIdx = 0;
+    var firstErr = null;
+    var tried = [];
+
+    function badgeNames() {
+      try {
+        var sel = pickSelector(V);
+        if (sel && typeof sel.badgeNames === 'function') return sel.badgeNames();
+      } catch (e) { /* fall through */ }
+      return { webgpu: 'GPU · WebGPU', webgl2: 'GPU · WebGL2', cpu: 'CPU' };
     }
-    return withTimeout(initP, 10000, 'VX_E_FIELD_INIT', 'field init', 'field-init')
-      .then(function (field) {
-        if (!field || typeof field.step !== 'function' || typeof field.render !== 'function') {
-          throw vxError('VX_E_FIELD_INIT',
-            'Backend "' + ctx.backendName + '" did not return a field with step()/render().', 'field-init', null);
+    function renderBadge(name) {
+      try {
+        var sel = pickSelector(V);
+        if (sel && typeof sel.renderBackendBadge === 'function') {
+          sel.renderBackendBadge(
+            { name: badgeNames()[name] || name, backend: name, tier: TIER_OF[name], tracers: TRACERS_OF[name] },
+            null);
         }
-        ctx.field = field;
-        /* NOTE (audit 2026-09-20): getTracers() returns {count, simulated} —
-         * `simulated` is a BOOLEAN. The old code read t.simulated as the count
-         * and the UI printed "true tracers". */
-        try {
-          var t = field.getTracers ? field.getTracers() : null;
-          if (t && typeof t.count === 'number' && isFinite(t.count)) ctx.tracers = t.count;
-        } catch (e) { /* keep default */ }
-        ctx.keptNotes.push('field-init: ' + ctx.backendName + ' live, ' + ctx.tracers + ' tracers');
+      } catch (e) { /* badge is cosmetic; never blocks init */ }
+    }
+    function describeErr(e) {
+      return String((e && (e.message || e.code)) || e);
+    }
+    function stepDown(i, err) {
+      tried.push(ORDER[i]);
+      if (!firstErr) firstErr = err;
+      var next = i + 1;
+      if (next >= ORDER.length) {
+        throw vxError('VX_E_FIELD_INIT',
+          'Field failed to initialize on every backend (' + tried.join(' → ') + '). ' +
+          'First failure: ' + describeErr(firstErr), 'field-init', null);
+      }
+      var from = ORDER[i], to = ORDER[next];
+      var reason = describeErr(err);
+      ctx.backendName = to;
+      ctx.backendFactory = resolveBackend(V, to);
+      ctx.tracers = TRACERS_OF[to];
+      ctx.keptNotes.push('field-init: stepped down ' + from + ' → ' + to + ' (' + reason + ')');
+      try { emitBus('vx:degraded', { from: from, to: to, reason: reason }); } catch (e) { /* bus optional */ }
+      renderBadge(to);
+      setStatus('BACKEND ' + from.toUpperCase() + ' UNAVAILABLE — TRYING ' + to.toUpperCase() + '…');
+      return attempt(next);
+    }
+    function attempt(i) {
+      var name = ORDER[i];
+      var b = (i === startIdx) ? ctx.backendFactory : resolveBackend(V, name);
+      if (!b || typeof b.init !== 'function') {
+        return stepDown(i, vxError('VX_E_FIELD_INIT',
+          'Backend "' + name + '" has no init(canvas, opts).', 'field-init', null));
+      }
+      var initP = Promise.resolve().then(function () {
+        return b.init(canvas, { tracers: (i === startIdx) ? ctx.tracers : TRACERS_OF[name], seed: ctx.seed, config: ctx.configId });
       });
+      return withTimeout(initP, 10000, 'VX_E_FIELD_INIT', 'field init', 'field-init')
+        .then(function (field) {
+          if (!field || typeof field.step !== 'function' || typeof field.render !== 'function') {
+            throw vxError('VX_E_FIELD_INIT',
+              'Backend "' + name + '" did not return a field with step()/render().', 'field-init', null);
+          }
+          return field;
+        })
+        .catch(function (e) { return stepDown(i, e); });
+    }
+    return attempt(startIdx).then(function (field) {
+      ctx.field = field;
+      /* NOTE (audit 2026-09-20): getTracers() returns {count, simulated} —
+       * `simulated` is a BOOLEAN. The old code read t.simulated as the count
+       * and the UI printed "true tracers". */
+      try {
+        var t = field.getTracers ? field.getTracers() : null;
+        if (t && typeof t.count === 'number' && isFinite(t.count)) ctx.tracers = t.count;
+      } catch (e) { /* keep default */ }
+      ctx.keptNotes.push('field-init: ' + ctx.backendName + ' live, ' + ctx.tracers + ' tracers');
+    });
   }
 
   /* ---------------- chrome (NON-FATAL) ---------------- */
