@@ -1,0 +1,322 @@
+/* VORTEX vortex.css — W23 accessibility + lab aesthetic stylesheet.
+ * Dark lab look (deep purple / teal), high-contrast-safe text, visible focus,
+ * reduced-motion kill switch, panel/dock layout, GOV chips, live-region styling.
+ * No external fonts or assets. System font stack only.
+ */
+
+:root {
+  --vx-bg: #0d0a1a;
+  --vx-bg-2: #14102a;
+  --vx-panel: #1a1433;
+  --vx-panel-2: #211a40;
+  --vx-line: #3b2f66;
+  --vx-purple: #8b5cf6;
+  --vx-purple-hi: #c4a5ff;
+  --vx-teal: #2dd4bf;
+  --vx-teal-hi: #7df0dd;
+  --vx-text: #f0ecff;
+  --vx-text-dim: #cfc6ee;
+  --vx-text-faint: #a99ed1;
+  --vx-warn: #fbbf24;
+  --vx-error: #fb7185;
+  --vx-ok: #34d399;
+  --vx-focus: #f0abfc;
+  --vx-radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--vx-bg);
+  color: var(--vx-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+/* ---- screen-reader only ---- */
+.vx-sr-only {
+  position: absolute !important;
+  width: 1px !important; height: 1px !important;
+  padding: 0 !important; margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ---- visible focus: never rely on color alone ---- */
+#vx-root :focus-visible,
+#vx-root :focus {
+  outline: 3px solid var(--vx-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+#vx-root button:focus-visible,
+#vx-root input:focus-visible,
+#vx-root select:focus-visible {
+  box-shadow: 0 0 0 5px rgba(240, 171, 252, 0.28);
+}
+
+/* ---- shell layout (W01 ids) ---- */
+#vx-root {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas:
+    "toolbar"
+    "main"
+    "status"
+    "footer";
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px;
+  gap: 10px;
+}
+
+#vx-toolbar {
+  grid-area: toolbar;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: linear-gradient(180deg, var(--vx-bg-2), var(--vx-panel));
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 10px 12px;
+}
+
+#vx-main, #vx-canvas-wrap {
+  grid-area: main;
+  position: relative;
+  background: radial-gradient(ellipse at 50% 40%, #1d1540 0%, var(--vx-bg) 70%);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  min-height: 420px;
+  overflow: hidden;
+}
+#vx-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#vx-panel-dock {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.vx-panel {
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 12px;
+}
+.vx-panel > h2, .vx-panel > h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--vx-purple-hi);
+  letter-spacing: 0.02em;
+}
+
+#vx-status {
+  grid-area: status;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  color: var(--vx-text-dim);
+}
+
+#vx-footer {
+  grid-area: footer;
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 8px 12px;
+  min-height: 2.4em;
+  font-size: 0.9rem;
+  color: var(--vx-text-dim);
+}
+
+#vx-fatal {
+  display: none;
+  background: #2a0f1c;
+  border: 2px solid var(--vx-error);
+  border-radius: var(--vx-radius);
+  color: #ffe4e6;
+  padding: 16px;
+  margin: 12px 0;
+}
+#vx-fatal h2 { margin-top: 0; color: var(--vx-error); }
+#vx-fatal .vx-kept { color: var(--vx-text-dim); }
+
+/* ---- GOV chips: text + icon, never color alone ---- */
+.vx-gov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--vx-line);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--vx-panel-2);
+  color: var(--vx-text-dim);
+}
+.vx-gov-chip .vx-chip-icon { font-style: normal; }
+.vx-gov-chip[data-state="active"] {
+  border-color: var(--vx-teal);
+  color: var(--vx-teal-hi);
+}
+.vx-gov-chip[data-state="locked"] {
+  border-color: var(--vx-warn);
+  color: var(--vx-warn);
+}
+.vx-gov-chip[data-state="down"] {
+  border-color: var(--vx-error);
+  color: var(--vx-error);
+}
+
+/* ---- announce / live regions ---- */
+.vx-announce {
+  border-left: 3px solid var(--vx-teal);
+  padding-left: 8px;
+  margin: 4px 0;
+  color: var(--vx-text);
+}
+.vx-announce-error {
+  border-left: 3px solid var(--vx-error);
+  padding-left: 8px;
+  margin: 4px 0;
+  color: #ffe4e6;
+}
+
+/* ---- generic controls ---- */
+#vx-root button, #vx-root input[type="button"], #vx-root input[type="submit"] {
+  background: var(--vx-panel-2);
+  color: var(--vx-text);
+  border: 1px solid var(--vx-line);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+#vx-root button:hover {
+  border-color: var(--vx-purple);
+  background: #2a2152;
+}
+#vx-root button[aria-pressed="true"] {
+  background: var(--vx-purple);
+  border-color: var(--vx-purple-hi);
+  color: #fff;
+}
+#vx-root input[type="range"] { accent-color: var(--vx-teal); }
+#vx-root select {
+  background: var(--vx-panel-2);
+  color: var(--vx-text);
+  border: 1px solid var(--vx-line);
+  border-radius: 7px;
+  padding: 6px 8px;
+}
+
+/* ---- W23: lab summary panel ---- */
+.vx-summary-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+.vx-summary-dl dt { color: var(--vx-text-faint); }
+.vx-summary-dl dd { margin: 0; color: var(--vx-text); font-weight: 600; }
+.vx-summary-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* ---- W23: simple-mode control strip (exactly 5 controls) ---- */
+.vx-simple-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  background: linear-gradient(180deg, #171233, var(--vx-panel));
+  border: 2px solid var(--vx-teal);
+  border-radius: var(--vx-radius);
+  padding: 12px;
+}
+.vx-simple-strip .vx-simple-label {
+  width: 100%;
+  font-weight: 700;
+  color: var(--vx-teal-hi);
+  letter-spacing: 0.05em;
+  font-size: 0.85rem;
+}
+.vx-simple-strip label { color: var(--vx-text-dim); font-size: 0.9rem; }
+
+/* simple mode hides advanced chrome */
+#vx-root.vx-simple-mode #vx-toolbar .vx-advanced,
+#vx-root.vx-simple-mode #vx-panel-dock .vx-panel.vx-advanced {
+  display: none;
+}
+#vx-root.vx-simple-mode .vx-simple-strip { display: flex; }
+.vx-simple-strip { display: none; }
+
+/* ---- W23: step button for reduced-motion / frozen loop ---- */
+.vx-step-btn {
+  border-color: var(--vx-warn) !important;
+  font-weight: 700;
+}
+.vx-motion-banner {
+  background: #2b2113;
+  border: 1px solid var(--vx-warn);
+  color: #fde68a;
+  border-radius: 7px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
+
+/* ---- W23: shortcut help ---- */
+.vx-shortcut-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.vx-shortcut-table th, .vx-shortcut-table td {
+  text-align: left; padding: 4px 8px;
+  border-bottom: 1px solid var(--vx-line);
+}
+.vx-shortcut-table th { color: var(--vx-text-faint); }
+.vx-shortcut-table kbd {
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: ui-monospace, monospace;
+  color: var(--vx-teal-hi);
+}
+
+/* ---- gentle lab motion (killed under reduced motion) ---- */
+@keyframes vx-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.vx-pulse { animation: vx-pulse 2.4s ease-in-out infinite; }
+.vx-spiral-hint {
+  background: conic-gradient(from 0deg, #241b52, #143d3a, #241b52);
+  transition: background 0.6s ease;
+}
+
+/* reduced motion: freeze everything animated, no smooth scrolling */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .vx-pulse { animation: none !important; }
+}
