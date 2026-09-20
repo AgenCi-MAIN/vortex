@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VORTEX Lab — standalone</title>
+<!-- W23's lab stylesheet enhances this shell when it lands; a 404 here is harmless. -->
+<link rel="stylesheet" href="css/vortex.css">
+<style>
+  /* W01-owned critical styles: the shell and every failure state must render
+   * even before css/vortex.css exists. Dark lab aesthetic. */
+  :root {
+    --vx-bg: #070a12;
+    --vx-panel: #0c1220;
+    --vx-line: #1c2740;
+    --vx-text: #d7e3f5;
+    --vx-dim: #8ea0bd;
+    --vx-accent: #8b5cf6;   /* purple */
+    --vx-accent2: #2dd4bf;  /* teal */
+    --vx-warn: #f59e0b;
+    --vx-bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--vx-bg); color: var(--vx-text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  #vx-lab { display: flex; flex-direction: column; height: 100vh; }
+
+  #vx-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 8px 12px; background: var(--vx-panel); border-bottom: 1px solid var(--vx-line);
+  }
+  #vx-backend-badge {
+    font-size: 12px; padding: 3px 10px; border: 1px solid var(--vx-accent2);
+    border-radius: 999px; color: var(--vx-accent2); white-space: nowrap;
+  }
+  .vx-group { display: flex; align-items: center; gap: 6px; }
+  .vx-group + .vx-group { border-left: 1px solid var(--vx-line); padding-left: 10px; }
+  #vx-toolbar button {
+    background: #141c30; color: var(--vx-text); border: 1px solid var(--vx-line);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+  }
+  #vx-toolbar button:hover:not(:disabled) { border-color: var(--vx-accent); }
+  #vx-toolbar button.active { border-color: var(--vx-accent); color: #fff;
+    box-shadow: 0 0 0 1px var(--vx-accent) inset; }
+  #vx-toolbar button:disabled { opacity: .4; cursor: not-allowed; }
+  .vx-sliders label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--vx-dim); }
+  .vx-sliders output { min-width: 2.2em; text-align: right; color: var(--vx-text); font-size: 12px; }
+  .vx-sliders input[type=range] { accent-color: var(--vx-accent); width: 110px; }
+
+  #vx-main { flex: 1; display: flex; min-height: 0; }
+  #vx-canvas-wrap { flex: 1; position: relative; min-width: 0; background:
+    radial-gradient(ellipse at 50% 45%, #101a33 0%, var(--vx-bg) 70%); }
+  #vx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #vx-panel-dock {
+    width: 300px; overflow-y: auto; background: var(--vx-panel);
+    border-left: 1px solid var(--vx-line); padding: 10px;
+  }
+  #vx-panel-dock:empty::after { content: "panels mount here"; color: var(--vx-dim); font-size: 12px; }
+  .vx-panel { border: 1px solid var(--vx-line); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+  .vx-panel h3 { margin: 0 0 6px; font-size: 13px; color: var(--vx-accent2); }
+  .vx-panel-degraded { border-color: var(--vx-warn); }
+
+  #vx-footer {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 6px 12px; background: var(--vx-panel); border-top: 1px solid var(--vx-line);
+    font-size: 12px; color: var(--vx-dim); min-height: 34px;
+  }
+  .vx-chips { display: flex; gap: 6px; }
+  .vx-chip {
+    border: 1px solid var(--vx-line); border-radius: 999px; padding: 2px 10px;
+    color: var(--vx-dim); white-space: nowrap;
+  }
+  .vx-announce { color: var(--vx-accent2); }
+
+  #vx-status {
+    padding: 6px 12px; font-size: 12px; letter-spacing: .12em; color: var(--vx-warn);
+    background: #0a0f1c; border-top: 1px solid var(--vx-line); text-transform: uppercase;
+  }
+  #vx-status.vx-ready { color: var(--vx-accent2); }
+
+  /* Fatal panel: the named on-screen error. Never a spinner. */
+  #vx-fatal {
+    margin: 12px; padding: 16px 18px; border: 1px solid var(--vx-bad); border-radius: 10px;
+    background: #1a0d12; color: var(--vx-text);
+  }
+  #vx-fatal[hidden] { display: none; }
+  #vx-fatal h2 { margin: 0 0 8px; font-size: 16px; color: var(--vx-bad); }
+  #vx-fatal p { margin: 6px 0; font-size: 13px; }
+  #vx-fatal button {
+    margin-top: 8px; background: #141c30; color: var(--vx-text);
+    border: 1px solid var(--vx-line); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  #vx-fatal button:hover { border-color: var(--vx-accent); }
+</style>
+</head>
+<body>
+<div id="vx-lab">
+  <header id="vx-toolbar" aria-label="Vortex controls">
+    <span id="vx-backend-badge" title="Active simulation backend">backend: …</span>
+
+    <div class="vx-group" role="group" aria-label="Interaction mode">
+      <button id="vx-btn-move" type="button" aria-pressed="false">Move</button>
+      <button id="vx-btn-stir" type="button" aria-pressed="true" class="active">Stir</button>
+      <button id="vx-btn-orbit" type="button" aria-pressed="false">Orbit</button>
+    </div>
+
+    <div class="vx-group" role="group" aria-label="Field presets">
+      <button id="vx-preset-spiral" type="button">Spiral</button>
+      <button id="vx-preset-collision" type="button">Collision</button>
+      <button id="vx-preset-wake" type="button">Wake</button>
+    </div>
+
+    <div class="vx-group vx-sliders" role="group" aria-label="Field parameters">
+      <label>Circulation
+        <input id="vx-slider-circulation" type="range" min="0" max="100" value="50">
+        <output id="vx-out-circulation" for="vx-slider-circulation">50</output>
+      </label>
+      <label>Turbulence
+        <input id="vx-slider-turbulence" type="range" min="0" max="100" value="30">
+        <output id="vx-out-turbulence" for="vx-slider-turbulence">30</output>
+      </label>
+      <label>Persistence
+        <input id="vx-slider-persistence" type="range" min="0" max="100" value="70">
+        <output id="vx-out-persistence" for="vx-slider-persistence">70</output>
+      </label>
+    </div>
+
+    <div class="vx-group" role="group" aria-label="Probes">
+      <button id="vx-probe-oppose" type="button">Oppose winding</button>
+      <button id="vx-probe-wake" type="button">Test the wake</button>
+      <button id="vx-probe-perturb" type="button">Perturb the field</button>
+    </div>
+  </header>
+
+  <div id="vx-main">
+    <main id="vx-canvas-wrap">
+      <canvas id="vx-canvas" aria-label="Vortex field"></canvas>
+    </main>
+    <aside id="vx-panel-dock" aria-label="Lab panels"></aside>
+  </div>
+
+  <footer id="vx-footer">
+    <div id="vx-chips" class="vx-chips" aria-label="Status chips"></div>
+  </footer>
+
+  <div id="vx-status" role="status" aria-live="polite">INITIALIZING FIELD</div>
+
+  <div id="vx-fatal" hidden></div>
+</div>
+
+<!-- The ONLY script this shell includes. The staged loader in init.js owns
+     every other file (CONTRACTS §10 order), so a mid-boot failure produces a
+     named error instead of the old infinite INITIALIZING FIELD spinner. -->
+<script src="init.js"></script>
+<script>
+(function () {
+  'use strict';
+  function boot() {
+    if (!window.VortexInit || typeof window.VortexInit.boot !== 'function') {
+      var f = document.getElementById('vx-fatal');
+      f.removeAttribute('hidden');
+      f.style.display = 'block';
+      f.innerHTML = '<h2>VORTEX stopped: VX_E_NAMESPACE</h2>' +
+        '<p>init.js failed to load, so the staged boot could not start.</p>' +
+        '<p>Next step: reload. If it persists, check that init.js sits next to this file.</p>';
+      document.getElementById('vx-status').textContent = 'FAILED — VX_E_NAMESPACE';
+      return;
+    }
+    /* init.js registers 'w01-init' with VORTEX once the namespace stage
+     * completes; VortexInit.boot works before VORTEX exists by design. */
+    window.VortexInit.boot({ mode: 'standalone' }).then(function (r) {
+      /* boot() resolved: field live. chrome stage already wired the UI. */
+      if (window.console) console.log('[vortex] ready', r);
+    }).catch(function (e) {
+      /* VORTEX.ui.fail already rendered the named on-screen error. */
+      if (window.console) console.error('[vortex] boot failed', e && e.code, e);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
